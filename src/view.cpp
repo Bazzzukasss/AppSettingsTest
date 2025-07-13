@@ -3,6 +3,7 @@
 #include "SettingTreeModel.h"
 #include "SettingTreeView.h"
 #include "SettingItem.h"
+#include "SettingModel.h"
 #include "SettingDelegate.h"
 #include "IniSerializer.h"
 
@@ -16,30 +17,32 @@ View::View(QWidget *parent)
     initialize();
 }
 
+View::~View()
+{
+    save();
+}
+
 void View::initialize()
 {
     // Settings
-    auto strSetting = new StringSettingModel({"value","default"}, "DataString", "strSetting", this);
-    auto intSetting = new IntNumberSettingModel({8, 1, 10, 5}, "DataInt", "intSetting", this);
+    auto strSetting = new StringSettingModel({"value","default"}, "strSetting", "strSetting", this);
+    auto intSetting = new IntNumberSettingModel({8, 1, 10, 5}, "intSetting", "intSetting", this);
 
-    // Items
-    auto rootItem = new astg::SettingItem("Root");
-    auto strItem = new astg::SettingItem("String", strSetting, rootItem);
-    auto intItem = new astg::SettingItem("Int", intSetting, rootItem);
+    auto settingsGroup2 = new SettingGroupModel("Group2", "Group2", this);
+    settingsGroup2->addSettings({strSetting, intSetting});
 
-    auto subItem1 = new astg::SettingItem("Sub1", rootItem);
-    auto strItem1 = new astg::SettingItem("String", strSetting, subItem1);
-    auto intItem1 = new astg::SettingItem("Int", intSetting, subItem1);
+    auto settingsGroup1 = new SettingGroupModel("Group1", "Group1", this);
+    settingsGroup1->addSettings({strSetting, intSetting});
 
-    subItem1->addItems({strItem1, intItem1});
-    rootItem->addItems({strItem, intItem, subItem1});
+    m_rootSetting = new SettingGroupModel("RootGroup", "RootGroup", this);
+    m_rootSetting->addSettings({settingsGroup1, settingsGroup2});
 
     // Model
     auto model = new SettingTreeModel(this);
     auto treeView = new SettingTreeView(this);
     auto delegate = new SettingDelegate(this);
 
-    model->setRootItem(rootItem);
+    model->setRootSetting(m_rootSetting);
     treeView->setModel(model);
     treeView->setItemDelegate(delegate);
 
@@ -60,7 +63,17 @@ void View::initialize()
 
     setCentralWidget(mainWidget);
 
+    load();
+}
+
+void View::save()
+{
     serializer::IniSerializer sr("settings.ini");
-    intSetting->rw(&sr);
-    strSetting->rw(&sr);
+    m_rootSetting->rw(&sr);
+}
+
+void View::load()
+{
+    serializer::IniDeserializer sr("settings.ini");
+    m_rootSetting->rw(&sr);
 }
